@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Beverage Finance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--text:#1a1d21;--muted:#6b7280;--line:#e5e7eb;--red:#e41e2b;--dark:#15171a;--pos:#0f9d58;--neg:#d93025;--c2:#1f2937;--c3:#9ca3af;--c4:#f59e0b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1114;--card:#1a1d21;--text:#f1f3f5;--muted:#9aa1ab;--line:#2c3036;--c2:#e5e7eb;--c3:#6b7280}}
+:root[data-theme="dark"]{--bg:#0f1114;--card:#1a1d21;--text:#f1f3f5;--muted:#9aa1ab;--line:#2c3036;--c2:#e5e7eb;--c3:#6b7280}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+header{background:var(--dark);color:#fff;border-radius:12px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-bottom:4px solid var(--red)}
+h1{margin:0;font-size:19px}header p{margin:2px 0 0;color:#aab;font-size:12px}
+select{padding:7px 10px;border-radius:6px;border:1px solid #444;background:#2a2d31;color:#fff;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:12px 0}
+.card{background:var(--card);border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.l{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.v{font-size:26px;font-weight:700;margin:2px 0}
+.d{font-size:12px;font-weight:600}.up{color:var(--pos)}.dn{color:var(--neg)}
+.row{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:760px){.row{grid-template-columns:1fr}}
+h3{margin:0 0 10px;font-size:14px}
+.cv{position:relative;height:260px}
+.ins{border-left:4px solid var(--red);margin-bottom:12px}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:right;padding:9px 10px;border-bottom:2px solid var(--line);color:var(--muted);font-size:11px;text-transform:uppercase;cursor:pointer;white-space:nowrap}
+td{text-align:right;padding:9px 10px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+footer{color:var(--muted);font-size:12px;margin:12px 2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div><h1>Beverage Company Performance Dashboard</h1><p>FY2025 vs FY2024 · Quarterly P&amp;L view by region · USD millions</p></div>
+  <label style="font-size:12px;color:#aab">Region&nbsp;<select id="reg"></select></label>
+</header>
+<section class="kpis" id="kpis"></section>
+<div class="card ins"><div class="l">Key insight</div><div id="ins"></div></div>
+<section class="row">
+  <div class="card"><h3>Quarterly net revenue &amp; operating margin</h3><div class="cv"><canvas id="c1"></canvas></div></div>
+  <div class="card"><h3>FY2025 revenue mix</h3><div class="cv"><canvas id="c2"></canvas></div></div>
+</section>
+<section class="card tw">
+  <h3>Regional scorecard (click a header to sort)</h3>
+  <table><thead><tr id="th"></tr></thead><tbody id="tb"></tbody></table>
+</section>
+<footer>Illustrative sample data for demonstration only, not actual company results. To use real figures, replace the <code>BASE</code> table in the script with numbers from a 10-K / annual report.</footer>
+</div>
+<script>
+const Q=['Q1 24','Q2 24','Q3 24','Q4 24','Q1 25','Q2 25','Q3 25','Q4 25'];
+// region: [quarterly revenue, gross margin, operating margin, unit-case volume (M)]
+const BASE={'North America':[4300,.60,.24,1500],'EMEA':[2900,.62,.30,2100],'Latin America':[1900,.58,.36,3000],'Asia Pacific':[1700,.55,.27,2400]};
+const SEAS=[.94,1.03,1.06,.97];
+const ROWS=[];
+Object.entries(BASE).forEach(([r,[b,gm,om,v]],k)=>Q.forEach((q,i)=>{
+  const rev=b*SEAS[i%4]*(1+.012*i)*(1+.01*Math.sin(i*2.3+k));
+  ROWS.push({r,i,rev,gp:rev*(gm+.0015*i+.003*Math.sin(i+k)),oi:rev*(om+.0012*i+.004*Math.sin(i*1.7+k)),vol:v*SEAS[i%4]*(1+.006*i)});
+}));
+const f0=n=>Math.round(n).toLocaleString('en-US');
+const agg=(reg,a,b)=>ROWS.filter(x=>(reg==='All'||x.r===reg)&&x.i>=a&&x.i<=b).reduce((s,x)=>({rev:s.rev+x.rev,gp:s.gp+x.gp,oi:s.oi+x.oi,vol:s.vol+x.vol}),{rev:0,gp:0,oi:0,vol:0});
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim()||'#888';
+const sel=document.getElementById('reg');
+['All',...Object.keys(BASE)].forEach(r=>sel.add(new Option(r==='All'?'All regions':r,r)));
+let ch1,ch2,sortKey='rev',sortDir=-1;
+
+function kpi(label,val,delta,unit){
+  const up=delta>=0;
+  return `<div class="card"><div class="l">${label}</div><div class="v">${val}</div><div class="d ${up?'up':'dn'}">${up?'▲':'▼'} ${Math.abs(delta).toFixed(1)}${unit} vs FY2024</div></div>`;
+}
+function scorecard(){
+  return Object.keys(BASE).map(r=>{const c=agg(r,4,7),p=agg(r,0,3);
+    return {r,rev:c.rev,yoy:(c.rev/p.rev-1)*100,gm:c.gp/c.rev*100,om:c.oi/c.rev*100,vol:c.vol};});
+}
+function render(){
+  const reg=sel.value,c=agg(reg,4,7),p=agg(reg,0,3);
+  const gm=c.gp/c.rev*100,om=c.oi/c.rev*100,gmp=p.gp/p.rev*100,omp=p.oi/p.rev*100;
+  document.getElementById('kpis').innerHTML=
+    kpi('Net revenue','$'+(c.rev/1000).toFixed(1)+'B',(c.rev/p.rev-1)*100,'%')+
+    kpi('Gross margin',gm.toFixed(1)+'%',gm-gmp,' pts')+
+    kpi('Operating margin',om.toFixed(1)+'%',om-omp,' pts')+
+    kpi('Unit case volume',(c.vol/1000).toFixed(1)+'B',(c.vol/p.vol-1)*100,'%');
+  const sc=scorecard().sort((a,b)=>b.om-a.om)[0];
+  const rr=c.rev/c.vol,rp=p.rev/p.vol;
+  document.getElementById('ins').textContent=
+    `${reg==='All'?'Company-wide':reg} revenue per unit case moved ${((rr/rp-1)*100).toFixed(1)}% (price/mix) while volume moved ${((c.vol/p.vol-1)*100).toFixed(1)}%. `+
+    `${sc.r} leads operating margin at ${sc.om.toFixed(1)}%.`;
+  // chart 1
+  const qs=Q.map((_,i)=>agg(reg,i,i));
+  const d1={labels:Q,datasets:[
+    {type:'bar',label:'Net revenue ($M)',data:qs.map(x=>Math.round(x.rev)),backgroundColor:css('--red'),borderRadius:4,yAxisID:'y'},
+    {type:'line',label:'Operating margin (%)',data:qs.map(x=>+(x.oi/x.rev*100).toFixed(1)),borderColor:css('--c2'),backgroundColor:css('--c2'),tension:.3,yAxisID:'y1'}]};
+  if(ch1){ch1.data=d1;ch1.update('none');}else ch1=new Chart(c1,{data:d1,options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:css('--muted')}}},
+    scales:{x:{ticks:{color:css('--muted')},grid:{display:false}},y:{ticks:{color:css('--muted')},grid:{color:css('--line')}},
+    y1:{position:'right',min:15,max:40,ticks:{color:css('--muted'),callback:v=>v+'%'},grid:{display:false}}}}});
+  // chart 2
+  const names=Object.keys(BASE),d2={labels:names,datasets:[{data:names.map(r=>Math.round(agg(r,4,7).rev)),backgroundColor:[css('--red'),css('--c2'),css('--c3'),css('--c4')],borderWidth:0}]};
+  if(ch2){ch2.data=d2;ch2.update('none');}else ch2=new Chart(c2,{type:'doughnut',data:d2,options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'bottom',labels:{color:css('--muted')}}}}});
+  table();
+}
+const COLS=[['r','Region'],['rev','Revenue $M'],['yoy','YoY %'],['gm','Gross margin %'],['om','Op. margin %'],['vol','Volume (M cases)']];
+function table(){
+  document.getElementById('th').innerHTML=COLS.map(([k,n])=>`<th data-k="${k}">${n}${k===sortKey?(sortDir>0?' ▲':' ▼'):''}</th>`).join('');
+  document.querySelectorAll('#th th').forEach(t=>t.onclick=()=>{const k=t.dataset.k;sortDir=k===sortKey?-sortDir:-1;sortKey=k;table();});
+  const rows=scorecard().sort((a,b)=>(a[sortKey]>b[sortKey]?1:-1)*sortDir);
+  document.getElementById('tb').innerHTML=rows.map(x=>`<tr><td>${x.r}</td><td>${f0(x.rev)}</td><td class="${x.yoy>=0?'up':'dn'}">${x.yoy.toFixed(1)}%</td><td>${x.gm.toFixed(1)}</td><td>${x.om.toFixed(1)}</td><td>${f0(x.vol)}</td></tr>`).join('');
+}
+sel.onchange=render;render();
+</script>
+</body>
+</html>
